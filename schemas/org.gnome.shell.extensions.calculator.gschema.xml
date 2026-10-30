@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.calculator" path="/org/gnome/shell/extensions/calculator/">
+    <key name="display-font-size" type="i">
+      <range min="18" max="48"/>
+      <default>28</default>
+      <summary>Result and input font size in points</summary>
+    </key>
+    <key name="button-font-size" type="i">
+      <range min="12" max="32"/>
+      <default>18</default>
+      <summary>Keypad font size in points</summary>
+    </key>
+    <key name="history-font-size" type="i">
+      <range min="10" max="24"/>
+      <default>14</default>
+      <summary>History, toolbar, and expression font size in points</summary>
+    </key>
+    <key name="history-limit" type="i">
+      <range min="10" max="100"/>
+      <default>50</default>
+      <summary>Maximum number of saved calculations</summary>
+    </key>
+    <key name="history" type="a(ss)">
+      <default>[]</default>
+      <summary>Saved expression and result pairs, newest first</summary>
+    </key>
+  </schema>
+</schemalist>

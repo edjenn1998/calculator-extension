@@ -1,0 +1,16 @@
+# Generated output
+dist/
+schemas/gschemas.compiled
+node_modules/
+coverage/
+__pycache__/
+*.py[cod]
+.cache/
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+.env
+.env.*
+!.env.example
