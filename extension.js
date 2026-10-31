@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Generated with AI for personal use.
+// Do NOT upload to extensions.gnome.org (EGO) unless you understand JavaScript
+// and can maintain this code.
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
@@ -147,6 +150,23 @@ export default class CalculatorExtension extends Extension {
         Main.panel.addToStatusArea(this.uuid, this.indicator);
     }
 
+    disable() {
+        this.settings.disconnect(this.settingsChanged);
+        this.indicator.menu.disconnect(this.menuStateChanged);
+        this.indicator.destroy();
+        this.indicator = null;
+        this.keyController = null;
+        this.root = null;
+        this.settings = null;
+        this.buttons = null;
+        this.display = null;
+        this.expressionLabel = null;
+        this.status = null;
+        this.historyPanel = null;
+        this.historyList = null;
+        this.historyToggle = null;
+    }
+
     _onKeyPress() {
         const [, symbol] = this.keyController.get_key();
         // History and toolbar buttons use Enter normally. Enter on the keypad
@@ -168,7 +188,7 @@ export default class CalculatorExtension extends Extension {
             key = '%';
         else if (symbol >= Clutter.KEY_0 && symbol <= Clutter.KEY_9)
             key = String.fromCharCode(symbol);
-        else if (symbol === Clutter.KEY_KP_0 || symbol === Clutter.KEY_KP_1 || symbol === Clutter.KEY_KP_2 || symbol === Clutter.KEY_KP_3 || symbol === Clutter.KEY_KP_4 || symbol === Clutter.KEY_KP_5 || symbol === Clutter.KEY_KP_6 || symbol === Clutter.KEY_KP_7 || symbol === Clutter.KEY_KP_8 || symbol === Clutter.KEY_KP_9)
+        else if (symbol >= Clutter.KEY_KP_0 && symbol <= Clutter.KEY_KP_9)
             key = String(symbol - Clutter.KEY_KP_0);
         else if (symbol === Clutter.KEY_period || symbol === Clutter.KEY_KP_Decimal)
             key = '.';
@@ -283,20 +303,4 @@ export default class CalculatorExtension extends Extension {
         }
     }
 
-    disable() {
-        this.settings.disconnect(this.settingsChanged);
-        this.indicator.menu.disconnect(this.menuStateChanged);
-        this.keyController = null;
-        this.root = null;
-        this.indicator.destroy();
-        this.indicator = null;
-        this.settings = null;
-        this.buttons = null;
-        this.display = null;
-        this.expressionLabel = null;
-        this.status = null;
-        this.historyPanel = null;
-        this.historyList = null;
-        this.historyToggle = null;
-    }
 }

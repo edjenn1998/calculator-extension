@@ -29,8 +29,8 @@ Log out and back in after installing or updating, then enable it:
 gnome-extensions enable calculator-extension@edjenn1998.github.io
 ```
 
-The ZIP contains the extension files at its root and a compiled settings schema;
-no build tools are needed on the machine where you install it.
+The ZIP contains the extension files at its root and the settings schema XML.
+GNOME's extension installer compiles the schema during installation.
 
 ## Text sizes
 
