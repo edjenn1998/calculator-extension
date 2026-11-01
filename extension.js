@@ -136,9 +136,9 @@ export default class CalculatorExtension extends Extension {
         this._renderHistory();
         this._applyFontSizes();
 
-        this.keyController = new Clutter.KeyController();
-        this.keyController.connect('key-press', () => this._onKeyPress());
-        this.root.add_action_full('calculator-keyboard', Clutter.EventPhase.CAPTURE, this.keyController);
+        const keyController = new Clutter.KeyController();
+        keyController.connectObject('key-press', controller => this._onKeyPress(controller), this.root);
+        this.root.add_action_full('calculator-keyboard', Clutter.EventPhase.CAPTURE, keyController);
         this.menuStateChanged = this.indicator.menu.connect('open-state-changed', (_menu, open) => {
             if (open)
                 this.root.grab_key_focus();
@@ -149,30 +149,39 @@ export default class CalculatorExtension extends Extension {
 
     disable() {
         this.settings.disconnect(this.settingsChanged);
+        this.settingsChanged = null;
         this.indicator.menu.disconnect(this.menuStateChanged);
+        this.menuStateChanged = null;
+        this.indicator.menu.focusActor = null;
+        this.historyList.destroy();
+        this.historyList = null;
+        this.historyPanel.destroy();
+        this.historyPanel = null;
+        this.expressionLabel.destroy();
+        this.expressionLabel = null;
+        this.display.destroy();
+        this.display = null;
+        this.status.destroy();
+        this.status = null;
+        // The popup owns the remaining buttons and the keyboard signal connection.
+        this.root.destroy();
+        this.root = null;
         this.indicator.destroy();
         this.indicator = null;
-        this.keyController = null;
-        this.root = null;
         this.settings = null;
         this.buttons = null;
-        this.display = null;
-        this.expressionLabel = null;
-        this.status = null;
-        this.historyPanel = null;
-        this.historyList = null;
         this.historyToggle = null;
     }
 
-    _onKeyPress() {
-        const [, symbol] = this.keyController.get_key();
+    _onKeyPress(controller) {
+        const [, symbol] = controller.get_key();
         // History and toolbar buttons use Enter normally. Enter on the keypad
         // still calculates, including after clicking a digit with the mouse.
         if ((symbol === Clutter.KEY_Return || symbol === Clutter.KEY_KP_Enter) &&
             global.stage.get_key_focus() instanceof St.Button &&
             !this.buttons.includes(global.stage.get_key_focus()))
             return Clutter.EVENT_PROPAGATE;
-        const [, pressed, latched] = this.keyController.get_state();
+        const [, pressed, latched] = controller.get_state();
         const shift = Boolean((pressed | latched) & Clutter.ModifierType.SHIFT_MASK);
         if ((pressed | latched) & (Clutter.ModifierType.CONTROL_MASK | Clutter.ModifierType.MOD1_MASK | Clutter.ModifierType.SUPER_MASK))
             return Clutter.EVENT_PROPAGATE;

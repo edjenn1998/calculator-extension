@@ -2,7 +2,7 @@
   "uuid": "calculator-extension@edjenn1998.github.io",
   "name": "Top Bar Calculator",
   "description": "A top-bar calculator with adjustable text sizes, keyboard input, and persistent calculation history.",
-  "version-name": "1.0.1",
+  "version-name": "1.0.2",
   "url": "https://github.com/edjenn1998/calculator-extension",
   "settings-schema": "org.gnome.shell.extensions.calculator",
   "shell-version": ["51"]

@@ -12,15 +12,45 @@ class Actor {
         Object.assign(this, properties);
         this.children = [];
         this.signals = {};
+        this.actions = [];
+        this.clutter_text = {set_line_alignment() {}};
     }
-    add_child(child) { this.children.push(child); }
-    set_child(child) { this.child = child; }
-    connect(name, callback) { this.signals[name] = callback; }
-    destroy_all_children() { this.children = []; }
+    add_child(child) { this.children.push(child); child.parent = this; }
+    set_child(child) { this.add_child(child); }
+    connect(name, callback) { this.signals[name] = callback; return name; }
+    disconnect(id) { delete this.signals[id]; }
+    connectObject(name, callback, owner) {
+        const id = this.connect(name, callback);
+        owner.connect('destroy', () => this.disconnect(id));
+    }
+    destroy_all_children() {
+        for (const child of [...this.children])
+            child.destroy();
+    }
+    destroy() {
+        assert.equal(this.destroyed, undefined, 'Actor destroyed twice');
+        this.signals.destroy?.();
+        this.destroy_all_children();
+        this.signals = {};
+        this.actions = [];
+        if (this.parent)
+            this.parent.children = this.parent.children.filter(child => child !== this);
+        this.destroyed = true;
+    }
+    setMenu(menu) { this.menu = menu; this.add_child(menu); }
+    set_policy() {}
+    add_action_full(_name, _phase, action) { this.actions.push(action); }
     set_style(style) { this.style = style; }
     grab_key_focus() { this.focused = true; }
 }
 class Button extends Actor {}
+class Menu extends Actor {
+    constructor() {
+        super();
+        this.box = new Actor();
+        this.add_child(this.box);
+    }
+}
 class Variant {
     constructor(_type, value) { this.value = value; }
     deep_unpack() { return structuredClone(this.value); }
@@ -32,6 +62,8 @@ const Clutter = {
     ModifierType: {SHIFT_MASK: 1, CONTROL_MASK: 4, MOD1_MASK: 8, SUPER_MASK: 64},
     EVENT_PROPAGATE: false, EVENT_STOP: true,
     Orientation: {VERTICAL: 1},
+    ActorAlign: {FILL: 0, CENTER: 1}, EventPhase: {CAPTURE: 0},
+    KeyController: Actor,
 };
 let focus = null;
 const source = readFileSync(new URL('../extension.js', import.meta.url), 'utf8')
@@ -39,7 +71,13 @@ const source = readFileSync(new URL('../extension.js', import.meta.url), 'utf8')
     .replace('export default class', 'class');
 const CalculatorExtension = vm.runInNewContext(`${source}\nCalculatorExtension;`, {
     Clutter, GLib: {Variant}, GObject: {registerClass: value => value},
-    St: {Button, BoxLayout: Actor, Label: Actor}, PanelMenu: {Button: Actor},
+    St: {
+        Button, BoxLayout: Actor, Label: Actor, Icon: Actor, ScrollView: Actor,
+        Side: {TOP: 0}, PolicyType: {NEVER: 0, AUTOMATIC: 1},
+    },
+    PanelMenu: {Button: Actor}, PopupMenu: {PopupMenu: Menu},
+    Pango: {EllipsizeMode: {START: 0}, Alignment: {RIGHT: 1}},
+    Main: {panel: {addToStatusArea() {}}},
     Extension: class {}, evaluate, global: {stage: {get_key_focus: () => focus}},
 });
 
@@ -61,6 +99,43 @@ function calculator() {
     });
     return {extension, data};
 }
+
+test('enable and disable release the UI and signals across repeated cycles', () => {
+    const calc = new CalculatorExtension();
+    const {extension: saved} = calculator();
+    const settings = new Actor();
+    Object.assign(settings, saved.settings);
+    calc.getSettings = () => settings;
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+        calc.enable();
+        const indicator = calc.indicator;
+        const root = calc.root;
+        const controller = root.actions[0];
+        const actors = [];
+        function collect(actor) {
+            actors.push(actor);
+            actor.children.forEach(collect);
+        }
+        collect(indicator);
+        assert.equal(typeof controller.signals['key-press'], 'function');
+        indicator.menu.signals['open-state-changed'](indicator.menu, true);
+        assert.equal(root.focused, true);
+        settings.signals.changed(settings, 'display-font-size');
+
+        calc.disable();
+
+        assert.ok(actors.every(actor => actor.destroyed));
+        assert.deepEqual(settings.signals, {});
+        assert.deepEqual(controller.signals, {});
+        assert.equal(indicator.menu.focusActor, null);
+        for (const field of [
+            'indicator', 'root', 'settings', 'buttons', 'display', 'expressionLabel',
+            'status', 'historyPanel', 'historyList', 'historyToggle',
+        ])
+            assert.equal(calc[field], null, `${field} still holds a reference`);
+    }
+});
 
 test('successful results persist, repeated equals is deduplicated, and errors are not saved', () => {
     const {extension: calc, data} = calculator();
@@ -125,25 +200,25 @@ test('parentheses, shifted digits, keypad addition, equals, and modifier shortcu
     const {extension: calc} = calculator();
     let symbol;
     let modifiers = 0;
-    calc.keyController = {get_key: () => [true, symbol], get_state: () => [true, modifiers, 0]};
+    const controller = {get_key: () => [true, symbol], get_state: () => [true, modifiers, 0]};
     focus = null;
     for (symbol of [Clutter.KEY_parenleft, Clutter.KEY_9, Clutter.KEY_parenright, Clutter.KEY_KP_Add, Clutter.KEY_5, Clutter.KEY_equal])
-        assert.equal(calc._onKeyPress(), Clutter.EVENT_STOP);
+        assert.equal(calc._onKeyPress(controller), Clutter.EVENT_STOP);
     assert.equal(calc.result, '14');
     calc.press('C');
     modifiers = Clutter.ModifierType.SHIFT_MASK;
     symbol = Clutter.KEY_9;
-    calc._onKeyPress();
+    calc._onKeyPress(controller);
     assert.equal(calc.expression, '(');
     modifiers = Clutter.ModifierType.CONTROL_MASK;
     symbol = Clutter.KEY_5;
-    assert.equal(calc._onKeyPress(), Clutter.EVENT_PROPAGATE);
+    assert.equal(calc._onKeyPress(controller), Clutter.EVENT_PROPAGATE);
     assert.equal(calc.expression, '(');
     modifiers = 0;
     symbol = Clutter.KEY_Return;
     focus = new Button();
-    assert.equal(calc._onKeyPress(), Clutter.EVENT_PROPAGATE);
+    assert.equal(calc._onKeyPress(controller), Clutter.EVENT_PROPAGATE);
     focus = calc.buttons[0];
-    assert.equal(calc._onKeyPress(), Clutter.EVENT_STOP);
+    assert.equal(calc._onKeyPress(controller), Clutter.EVENT_STOP);
     focus = null;
 });
