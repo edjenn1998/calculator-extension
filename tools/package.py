@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Build a flat GNOME extension ZIP, including its compiled GSettings schema."""
+"""Build a flat GNOME extension ZIP and validate its GSettings schema."""
 import json
 from pathlib import Path
 import subprocess
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = 'org.gnome.shell.extensions.calculator.gschema.xml'
 FILES = (
     'extension.js', 'calculator.js', 'prefs.js', 'metadata.json',
-    'stylesheet.css', f'schemas/{SCHEMA}', 'README.md', 'LICENSE',
+    'stylesheet.css', f'schemas/{SCHEMA}', 'LICENSE', 'COPYING',
 )
 
 
@@ -28,11 +28,10 @@ def main():
         with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as archive:
             for name in FILES:
                 archive.write(ROOT / name, name)
-            archive.write(schema_dir / 'gschemas.compiled', 'schemas/gschemas.compiled')
         with zipfile.ZipFile(archive_path) as archive:
             if archive.testzip() is not None:
                 raise RuntimeError('ZIP integrity check failed')
-            if set(archive.namelist()) != set(FILES) | {'schemas/gschemas.compiled'}:
+            if set(archive.namelist()) != set(FILES):
                 raise RuntimeError('Unexpected ZIP contents')
         output.write_bytes(archive_path.read_bytes())
     print(f'Created and verified {output}')
